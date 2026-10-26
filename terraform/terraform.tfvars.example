@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored: never commit it.
+region          = "af-casablanca-1"
+tenancy_ocid    = "ocid1.tenancy.oc1..xxxxxxxx"
+admin_cidr      = "203.0.113.7/32"
+ssh_public_key  = "ssh-ed25519 AAAA... kenshoo"
+create_instance = false
