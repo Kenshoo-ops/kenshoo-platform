@@ -1,0 +1,38 @@
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: verify-kenshoo-images
+spec:
+  # Audit first: violations are recorded in reports, nothing is blocked.
+  validationActions: [Audit]
+  # Ignore: if Kyverno itself fails, pods are still admitted. Switch to Fail when enforcing.
+  failurePolicy: Ignore
+  evaluation:
+    background:
+      enabled: false   # the background controller is disabled on this cluster
+  matchConstraints:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kyverno, argocd]
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  # Only our own images are checked; everything else is skipped.
+  matchImageReferences:
+    - glob: "ghcr.io/kenshoo-ops/*"
+  attestors:
+    - name: pipeline
+      cosign:
+        keyless:
+          identities:
+            - issuer: https://token.actions.githubusercontent.com
+              # The signer is the REUSABLE workflow, on a release tag.
+              subjectRegExp: '^https://github\.com/Kenshoo-ops/kenshoo-workflows/\.github/workflows/secure-build\.yml@refs/tags/v.*$'
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.pipeline])).all(e, e > 0)
+      message: image is not signed by the Kenshoo secure-build pipeline
