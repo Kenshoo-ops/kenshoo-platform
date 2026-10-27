@@ -1,0 +1,6 @@
+# Lean Argo CD for a small cluster (local 4 GB Docker VM, later a 2 OCPU / 12 GB server).
+# dex = SSO login, notifications = Slack/email alerts. Neither is needed yet.
+dex:
+  enabled: false
+notifications:
+  enabled: false
