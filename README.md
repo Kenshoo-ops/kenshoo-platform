@@ -4,18 +4,20 @@
 
 This repository holds everything needed to build and operate the platform from code: cloud infrastructure, the Kubernetes cluster, GitOps configuration, security policies and observability. After a one-time bootstrap, the cluster configures itself from this repository.
 
-> **Status: early development.** The design is settled, but the infrastructure is not built yet. Nothing here is deployable today. See the [roadmap](#roadmap).
+> **Status: early development.** The platform runs on a local k3d cluster: Argo CD deploys everything from this repository, and Kyverno rejects any image that was not signed by the Kenshoo build pipeline. The cloud server on Oracle Cloud does not exist yet (its creation is blocked by a lack of free ARM capacity), so nothing runs in the cloud today. See the [roadmap](#roadmap).
 
-## What it will contain
+## What it contains
 
-| Area | Tools |
-|---|---|
-| Cloud infrastructure | Terraform on Oracle Cloud (OCI): network, compute, object storage, IAM |
-| Kubernetes | k3s on an ARM instance |
-| GitOps | Argo CD with an app-of-apps layout |
-| Admission policy | Kyverno: signed images only, non-root, no `latest` tag, resource limits |
-| Secrets | SOPS with age, encrypted values stored in git |
-| Observability | Prometheus, Loki, Grafana, Alertmanager |
+| Area | Tools | Status |
+|---|---|---|
+| Cloud infrastructure | Terraform on Oracle Cloud (OCI): network, compute, object storage, IAM | Network applied. Compute instance blocked by "Out of host capacity" |
+| Kubernetes | k3s on an ARM instance | Planned for the server. A local k3d cluster is used in the meantime |
+| GitOps | Argo CD with an app-of-apps layout | Working locally |
+| Admission policy | Kyverno: signed images only | Working locally, in Deny mode |
+| Admission policy (more rules) | Non-root, no `latest` tag, resource limits | Planned |
+| Secrets | SOPS with age, encrypted values stored in git | Planned |
+| Observability | Prometheus | Working locally, trimmed to fit a small node |
+| Observability (more) | Loki, Grafana, Alertmanager | Planned, for the server |
 
 ## The idea: a verified chain
 
@@ -27,22 +29,30 @@ code ─► build ─► scan ─► sign ─► publish ─► declare ─► a
 
 The [pipeline](https://github.com/Kenshoo-ops/kenshoo-workflows) signs each image. This platform verifies that signature before anything is allowed to run, so a tampered or unsigned image cannot start, even if it reaches the registry.
 
-## Planned layout
-
-*This is the intended structure. It may change as the work progresses.*
+## Layout
 
 ```text
 kenshoo-platform/
-├── terraform/            OCI: network, compute, object storage, IAM
-├── bootstrap/            k3s install, Argo CD install
-├── clusters/prod/        Argo CD app-of-apps entry point
+├── terraform/            OCI: compartment, network, compute instance
+├── bootstrap/            Argo CD values and the root Application
+├── clusters/local/       one Argo CD Application per deployed service
 ├── apps/
-│   ├── kenshoo/          verifier deployment
-│   ├── observability/    Prometheus, Loki, Grafana, Alertmanager
-│   └── policies/         Kyverno policies
-├── secrets/              SOPS-encrypted values
+│   ├── kenshoo/          sample-app deployment (the kenshoo verifier comes later)
+│   ├── observability/    placeholder, empty for now
+│   └── policies/         Kyverno image verification policy
 └── docs/adr/             architecture decision records
 ```
+
+A `secrets/` folder for SOPS-encrypted values will be added with the secrets decision.
+
+## Decisions
+
+| ADR | Title | Status |
+|---|---|---|
+| [0001](docs/adr/0001-overall-architecture.md) | Overall architecture | See the ADR |
+| [0002](docs/adr/0002-clean-rebuild-with-phase-switch.md) | Clean rebuild of the OCI infrastructure, in two phases | Proposed |
+| [0003](docs/adr/0003-kyverno-image-verification.md) | Admit only images signed by our own pipeline | Proposed |
+| [0004](docs/adr/0004-gitops-layout-app-of-apps.md) | GitOps layout with Argo CD and an app-of-apps root | Proposed |
 
 ## Design principles
 
@@ -52,22 +62,33 @@ kenshoo-platform/
 - **Reproducible.** Rebuilding the platform from nothing is a defined procedure.
 - **Decisions are written down** as short Architecture Decision Records in `docs/adr/`.
 
-## Prerequisites (planned)
+## Prerequisites
+
+To run the platform locally:
+
+- Docker Desktop with roughly 4 GiB of memory available to its VM
+- `k3d`, `kubectl` and `helm`
+
+For the cloud part (planned):
 
 - An Oracle Cloud account (the Always Free tier is enough for the ARM instance)
-- Terraform, `kubectl`, `sops` and `age`
-- Optionally `kind` for trying the platform locally
+- Terraform, `sops` and `age`
 
 ## Roadmap
 
-- [ ] ADR-001: overall architecture
-- [ ] Terraform for the OCI network and compute instance
-- [ ] k3s installation and Argo CD bootstrap
-- [ ] App-of-apps layout and SOPS secrets
-- [ ] Kyverno policies, including image signature verification
-- [ ] Observability stack with dashboards and alerts
+- [x] ADR-0001: overall architecture
+- [x] Terraform for the OCI compartment and network
+- [ ] Terraform for the OCI compute instance (blocked: "Out of host capacity")
+- [ ] k3s installation on the server
+- [x] Argo CD bootstrap and app-of-apps layout (local cluster)
+- [ ] SOPS secrets
+- [x] Kyverno image signature verification (local cluster, Deny mode)
+- [ ] Further Kyverno policies (non-root, no `latest` tag, resource limits)
+- [ ] Close the known gap: require that signed images were built from `main`
+- [x] Prometheus (local, lean)
+- [ ] Loki, Grafana and alerting, on the server
 - [ ] Network policies and least-privilege IAM
-- [ ] Local quickstart on `kind`
+- [ ] Local quickstart on `k3d`
 
 ## Contributing
 
