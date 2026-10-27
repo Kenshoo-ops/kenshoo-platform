@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+  namespace: sample-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample-app
+  template:
+    metadata:
+      labels:
+        app: sample-app
+    spec:
+      containers:
+        - name: sample-app
+          # Pinned by digest: the exact image the pipeline built and signed (tag sha-8044cd5).
+          image: ghcr.io/kenshoo-ops/sample-app@sha256:1fa1bf12ff5a04fa72f012751c9baddc46079e5ee6865b6c4b1c83cb1d9b1346
+          # The image just echoes and exits; keep the pod alive so there is something to observe.
+          command: ["sleep", "86400"]
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
